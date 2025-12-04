@@ -30,7 +30,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "app/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -51,6 +54,13 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "test:ci": [
+            "@php artisan config:clear",
+            "@php artisan test --parallel --coverage"
+        ],
+        "pint": "./vendor/bin/pint",
+        "pint:test": "./vendor/bin/pint --test",
+        "phpstan": "./vendor/bin/phpstan analyse --memory-limit=2G",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",

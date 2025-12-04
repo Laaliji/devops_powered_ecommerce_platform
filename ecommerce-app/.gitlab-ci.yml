@@ -1,0 +1,150 @@
+# GitLab CI/CD Pipeline for Laravel Multi-Tenant E-Commerce
+
+image: php:8.2-fpm
+
+# Define pipeline stages
+stages:
+  - build
+  - test
+  - quality
+
+# Cache vendor and node_modules for faster builds
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - vendor/
+    - node_modules/
+    - .npm/
+
+# Global variables
+variables:
+  POSTGRES_DB: ecommerce_test
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: secret
+  POSTGRES_HOST_AUTH_METHOD: trust
+  DB_HOST: postgres
+  DB_DATABASE: ecommerce_test
+  DB_USERNAME: postgres
+  DB_PASSWORD: secret
+
+# Before script - runs before each job
+before_script:
+  - apt-get update -qq && apt-get install -y -qq git curl libpq-dev libzip-dev unzip
+  - docker-php-ext-install pdo pdo_pgsql pgsql zip
+  - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+  - composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+  - cp .env.testing .env
+  - php artisan key:generate
+  - php artisan config:clear
+
+# ==================== BUILD STAGE ====================
+
+build:dependencies:
+  stage: build
+  script:
+    - echo "Installing Composer dependencies..."
+    - composer install --prefer-dist --no-ansi --no-interaction --no-progress
+    - echo "Installing NPM dependencies..."
+    - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    - apt-get install -y nodejs
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+  artifacts:
+    paths:
+      - vendor/
+      - node_modules/
+      - public/build/
+    expire_in: 1 hour
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - vendor/
+      - node_modules/
+      - .npm/
+
+# ==================== TEST STAGE ====================
+
+test:phpunit:
+  stage: test
+  services:
+    - postgres:15
+  dependencies:
+    - build:dependencies
+  script:
+    - echo "Running database migrations..."
+    - php artisan migrate:fresh --seed --force
+    - echo "Running PHPUnit tests..."
+    - php artisan test --parallel --coverage --min=70
+  coverage: '/^\s*Lines:\s*\d+\.\d+\%/'
+  artifacts:
+    when: always
+    reports:
+      junit: storage/logs/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - storage/logs/
+    expire_in: 1 week
+
+test:feature:
+  stage: test
+  services:
+    - postgres:15
+  dependencies:
+    - build:dependencies
+  script:
+    - php artisan migrate:fresh --force
+    - php artisan test --testsuite=Feature
+  allow_failure: false
+
+test:unit:
+  stage: test
+  dependencies:
+    - build:dependencies
+  script:
+    - php artisan test --testsuite=Unit
+  allow_failure: false
+
+# ==================== CODE QUALITY STAGE ====================
+
+quality:pint:
+  stage: quality
+  dependencies:
+    - build:dependencies
+  script:
+    - echo "Checking code style with Laravel Pint..."
+    - ./vendor/bin/pint --test
+  allow_failure: true
+
+quality:phpstan:
+  stage: quality
+  dependencies:
+    - build:dependencies
+  script:
+    - echo "Running static analysis with PHPStan..."
+    - composer require --dev phpstan/phpstan --no-interaction
+    - ./vendor/bin/phpstan analyse --memory-limit=2G
+  allow_failure: true
+
+quality:security:
+  stage: quality
+  dependencies:
+    - build:dependencies
+  script:
+    - echo "Checking for security vulnerabilities..."
+    - composer audit
+  allow_failure: true
+
+# ==================== DEPLOY STAGE (Optional) ====================
+
+# Uncomment and configure for deployment
+# deploy:staging:
+#   stage: deploy
+#   script:
+#     - echo "Deploying to staging server..."
+#     # Add your deployment commands here
+#   only:
+#     - main
+#     - master
+#   when: manual

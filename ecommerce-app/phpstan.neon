@@ -1,0 +1,13 @@
+parameters:
+    level: 5
+    paths:
+        - app
+        - config
+        - database
+        - routes
+    excludePaths:
+        - app/Console/Kernel.php
+        - app/Exceptions/Handler.php
+    ignoreErrors:
+        - '#Unsafe usage of new static#'
+    checkMissingIterableValueType: false

@@ -1,6 +1,6 @@
 # Testing Strategy & PHPUnit Configuration
 **Author**: Zakariae  
-**Date**: December 2024
+**Date**: 12 December 2024
 
 ## Responsibilities
 

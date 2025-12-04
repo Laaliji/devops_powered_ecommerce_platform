@@ -18,7 +18,7 @@ Copy and customize this template for your contribution:
 ```markdown
 # [Your Component Title]
 **Author**: [Your Name]  
-**Date**: December 2024
+**Date**: day month year
 
 ## Responsibilities
 
